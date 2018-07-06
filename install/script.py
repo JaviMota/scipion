@@ -381,7 +381,6 @@ env.addPackage('ctffind4', version='4.1.8',
 env.addPackage('ctffind4', version='4.1.10',
                tar='ctffind4-4.1.10.tgz')
 
-
 env.addPackage('summovie', version='1.0.2',
                tar='summovie_1.0.2.tgz')
 
@@ -467,6 +466,9 @@ env.addPackage('motioncor2', version='1.0.5',
 
 env.addPackage('simple', version='2.1',
                tar='simple2.tgz')
+
+env.addPackage('volumecut', version='1.0.0',
+               tar='volumecut-1.0.0.tgz')
 
 env.addPackage('chimera', version='1.10.1',
                tar='chimera-1.10.1-linux_x86_64.tgz',
