@@ -137,4 +137,6 @@ from protocol_realignment_classes import XmippProtReAlignClasses
 # Wizards
 from wizard import *
 
+from protocol_volume_cut import ProtVolumeCut
+
 _environ = getEnviron()

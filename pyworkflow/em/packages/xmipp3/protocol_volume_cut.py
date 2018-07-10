@@ -24,42 +24,74 @@
 # *
 # **************************************************************************
 
-import sys
 from os.path import join, exists, getmtime
 from datetime import datetime
 
-from pyworkflow.object import Set, String
-import pyworkflow.em as em
 from pyworkflow.em.protocol import EMProtocol
-import pyworkflow.em.metadata as md
 import pyworkflow.protocol.params as params
-import pyworkflow.protocol.constants as pwconst
-import pyworkflow.utils as pwutils
-from pyworkflow.em.protocol import ProtImportFiles
+from pyworkflow.em.data import PdbFile
 
-from pyworkflow.em.packages.xmipp3.utils import isMdEmpty
-from pyworkflow.em.packages.xmipp3.convert import mdToCTFModel, readCTFModel
+import time
+from shutil import  copyfile
 
 class ProtVolumeCut(EMProtocol):
 
+    _label = 'volumecut'
 
-    def _defineProcessParams(self, form):
-
-        form.addParam('pdbReference', params.PointerParam, pointerClass='SetOfPDBs')
-        form.addParam('Volume', params.PointerParam, pointerClass='SetOfVolumes',
-                      label='Volume to cut')
-        form.addParam('radius', params.IntParam, default=0.0,
-                      label='radius to cut')
-        form.addParam('chainID', params.StringParam, label='chain which you are interested on')
+    def _defineParams(self, form):
+        form.addSection(label='Input')
+        form.addParam('pdbReference', params.PointerParam, pointerClass='PdbFile',
+                      label='PDB reference', important=True)
+        form.addParam('Volume', params.PointerParam, pointerClass='Volume',
+                      label='Volume to cut', important=True)
+        form.addParam('radius', params.FloatParam, default=0.0,
+                      label='Radius', help='radius from the center of the region to cut')
+        form.addParam('helice', params.StringParam, label='Cut off the '
+                                                          'whole chain or helices ' 
+                                                          'with specific AA? (C or H)',
+                      important=True)
+        form.addParam('chainID', params.StringParam, label= 'ChainID',
+                      important=True,
+                      help='chain which you are interested on')
 
     def _insertAllSteps(self):
         self._insertFunctionStep('_cutVolume')
+        self._insertFunctionStep('_createOutputStep')
 
 
     def _cutVolume(self):
 
-        self._params = {'pdb':self.pdbReference.get(),
-                        'volume': self.Volume.get()
+        pathPdb = self.pdbReference.get().getFileName()
+        pathVol = self.Volume.get().getFileName()
+
+        copyfile(pathPdb, self._getExtraPath('protein.pdb'))
+        self._args = "-i %s -o %s" %(pathVol, self._getExtraPath('protein.mrc'))
+        self.runJob('xmipp_image_convert', self._args)
+
+        pathPdb = self._getExtraPath('protein.pdb').split('.')
+        self._params = {'pdb':pathPdb[0],
+                        'chainID': self.chainID.get(),
+                        'helice': self.helice.get(),
+                        'radius': self.radius.get()
                        }
+
+        self._args = """ << eof
+        %(pdb)s
+        %(chainID)s
+        %(helice)s
+        %(radius)f"""
+
+        self.runJob('/home/javiermota/scipion2/scipion/software/em/VolumeCut/LinuxCompiled/VolumeCut',
+                    self._args % self._params)
+
+    def _createOutputStep(self):
+
+        pdb = PdbFile(self._getPath('protein_%s_cut.pdb')%(self.chainID.get()),
+                      pdb=True)
+        self._defineOutputs(outputPdb=pdb)
+        self._defineSourceRelation(self.pdbReference, pdb)
+
+
+
 
 
