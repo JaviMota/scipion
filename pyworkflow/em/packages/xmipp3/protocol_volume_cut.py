@@ -29,7 +29,7 @@ from datetime import datetime
 
 from pyworkflow.em.protocol import EMProtocol
 import pyworkflow.protocol.params as params
-from pyworkflow.em.data import PdbFile
+from pyworkflow.em.data import PdbFile, Volume
 
 import time
 from shutil import  copyfile
@@ -53,6 +53,19 @@ class ProtVolumeCut(EMProtocol):
         form.addParam('chainID', params.StringParam, label= 'ChainID',
                       important=True,
                       help='chain which you are interested on')
+        form.addParam('apixX', params.FloatParam, default=1.0,
+                      label='ApixX',
+                      help='spacing distance along X coordinate between two '
+                           'neighboring voxels')
+        form.addParam('apixY', params.FloatParam, default=1.0,
+                      label='ApixY',
+                      help='spacing distance along Y coordinate between two '
+                           'neighboring voxels')
+        form.addParam('apixZ', params.FloatParam, default=1.0,
+                      label='ApixZ',
+                      help='spacing distance along Z coordinate between two '
+                           'neighboring voxels')
+
 
     def _insertAllSteps(self):
         self._insertFunctionStep('_cutVolume')
@@ -60,7 +73,6 @@ class ProtVolumeCut(EMProtocol):
 
 
     def _cutVolume(self):
-
         pathPdb = self.pdbReference.get().getFileName()
         pathVol = self.Volume.get().getFileName()
 
@@ -72,22 +84,34 @@ class ProtVolumeCut(EMProtocol):
         self._params = {'pdb':pathPdb[0],
                         'chainID': self.chainID.get(),
                         'helice': self.helice.get(),
-                        'radius': self.radius.get()
+                        'radius': self.radius.get(),
+                        'apixX': self.apixX.get(),
+                        'apixY': self.apixY.get(),
+                        'apixZ':self.apixZ.get()
                        }
 
         self._args = """ << eof
         %(pdb)s
         %(chainID)s
         %(helice)s
-        %(radius)f"""
+        %(radius)f
+        %(apixX)f
+        %(apixY)f
+        %(apixZ)f"""
 
         self.runJob('/home/javiermota/scipion2/scipion/software/em/VolumeCut/LinuxCompiled/VolumeCut',
                     self._args % self._params)
 
     def _createOutputStep(self):
 
+        samplingRate = self.Volume.get().getSamplingRate()
+        volume = Volume()
+        volume.setFileName(self._getExtraPath(
+            "protein_%s_cut")%self.chainID.get())
+        volume.setSamplingRate(samplingRate)
         pdb = PdbFile(self._getPath('protein_%s_cut.pdb')%(self.chainID.get()),
                       pdb=True)
+        pdb.setVolume(volume)
         self._defineOutputs(outputPdb=pdb)
         self._defineSourceRelation(self.pdbReference, pdb)
 
