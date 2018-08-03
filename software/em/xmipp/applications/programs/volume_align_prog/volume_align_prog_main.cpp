@@ -73,7 +73,7 @@ void applyTransformation(const MultidimArray<double> &V2,
     scale3DMatrix(vectorR3(scale, scale, scale),Aaux);
     A = A * Aaux;
 
-    applyGeometry(LINEAR, Vaux, V2, A, IS_NOT_INV, WRAP);
+    applyGeometry(LINEAR, Vaux, V2, A, IS_NOT_INV, DONT_WRAP);
     if (greyScale!=1 || greyShift!=0)
         FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(Vaux)
         DIRECT_MULTIDIM_ELEM(Vaux,n)=DIRECT_MULTIDIM_ELEM(Vaux,n)*greyScale+greyShift;
