@@ -32,23 +32,21 @@
 
 using namespace std;
 
-void ProgTomoExtractSample::defineParams(XmippProgram *program)
+void ProgTomoExtractSample::defineParams()
 {
-	program->addParamsLine("  [--i1]        		     : reference volume");
-	program->addParamsLine("  [--i2]        		     : volume to align");
-	program->addParamsLine("  [--matrixAlign]            : doc file with matrix transformation parameters");
-	program->addParamsLine("  [--matrixTransform]        : doc file with matrix transformation parameters");
-
+	addParamsLine("  [--i1]        		     : reference volume");
+	addParamsLine("  [--i2]        		     : volume to align");
+	addParamsLine("  [--matrixAlign]            : doc file with matrix transformation parameters");
 
 }
 
-void ProgTomoExtractSample::readParams(XmippProgram *program)
+void ProgTomoExtractSample::readParams()
 {
 
 	// Get parameters =======================================================
 	fn1 = getParam("--i1");
 	fn2 = getParam("--i2");
-	fnGeo = getParam("--paramsTransfrom");
+	fnGeo = getParam("--matrixAlign");
 
 
 }

@@ -47,10 +47,10 @@ public:
 
 public:
     /// Read parameters
-    void readParams(XmippProgram *program);
+    void readParams();
 
     /// Define Parameters
-    void defineParams(XmippProgram *program);
+    void defineParams();
 
     /// Run program
     void run();
