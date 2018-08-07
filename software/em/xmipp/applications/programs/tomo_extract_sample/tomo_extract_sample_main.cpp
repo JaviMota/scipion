@@ -25,10 +25,4 @@
 
 #include <reconstruction/tomo_extract_sample.h>
 
-int main(int argc, char **argv)
-{
-	ProgTomoExtractSample prm;
-    prm.read(argc,argv);
-    return prm.tryRun();
-}
-//RUN_XMIPP_PROGRAM(ProgTomoExtractSample)
+RUN_XMIPP_PROGRAM(ProgTomoExtractSample)
