@@ -47,9 +47,11 @@ extern double CTF_fitness(double *p, void *vprm);
 #define SQRT_CTF_PARAMETERS           6
 #define ENVELOPE_PARAMETERS          11
 #define DEFOCUS_PARAMETERS            3
+#define VPP_PARAMETERS                5
 #define FIRST_SQRT_PARAMETER         14
 #define FIRST_ENVELOPE_PARAMETER      2
 #define FIRST_DEFOCUS_PARAMETER       0
+#define FIRST_VPP_PARAMETER           26
 
 //#define DEBUG_WITH_TEXTFILES
 #ifdef DEBUG_WITH_TEXTFILES
@@ -1123,11 +1125,14 @@ void ProgCTFEstimateFromPSDFast::estimate_defoci_fast()
 		FourierTransformer FourierPSD;
 		FourierPSD.FourierTransform(psd_exp_radial2, psd_fft, false);
 
-		int startIndex = 3; //avoid low frequencies
+		int startIndex = 7;
+		if (current_ctfmodel.VPP_radius != 0.0)
+			startIndex = 10; //avoid low frequencies
 		FOR_ALL_ELEMENTS_IN_ARRAY1D(psd_fft)
 		{
 			if(i>=startIndex)
-			amplitud.push_back(abs(psd_fft[i]));
+				amplitud.push_back(abs(psd_fft[i]));
+
 		}
 
 		double maxValue = *max_element(amplitud.rbegin(),amplitud.rend());
@@ -1136,12 +1141,33 @@ void ProgCTFEstimateFromPSDFast::estimate_defoci_fast()
 		{
 			if(maxValue == amplitud[i])
 			{
-				current_ctfmodel.Defocus = (floor((finalIndex+startIndex))*pow(2*current_ctfmodel.Tm,2))/
+				current_ctfmodel.Defocus = (floor((finalIndex+startIndex+1))*pow(2*current_ctfmodel.Tm,2))/
 												current_ctfmodel.lambda;
 				break;
 			}
 			finalIndex++;
 		}
+		//Esto es nuevo para phase shift
+		/*if (current_ctfmodel.VPP_radius != 0.0)
+		{
+			current_ctfmodel.forcePhysicalMeaning();
+			COPY_ctfmodel_TO_CURRENT_GUESS;
+
+			Matrix1D<double> stepsVPP(VPP_PARAMETERS);
+			stepsVPP.initConstant(1);
+			stepsVPP(0) = 0; //Not optimize Defocus
+			stepsVPP(1) = 0; // Do not optimize kV
+			stepsVPP(2) = 0; // Do not optimize K
+			stepsVPP(4) = 0; // Do not optimize Radius
+			(*adjust_params)(0)=current_ctfmodel.Defocus;
+			(*adjust_params)(2)=current_ctfmodel.K;
+			(*adjust_params)(25)=initial_ctfmodel.phase_shift;
+			(*adjust_params)(26)=initial_ctfmodel.VPP_radius;
+			powellOptimizer(*adjust_params, FIRST_DEFOCUS_PARAMETER,
+											VPP_PARAMETERS, CTF_fitness_fast, global_prm, 0.05,
+											fitness, iter, steps, false);
+		}*/
+
 	}
 	// Keep the result in adjust
 	current_ctfmodel.forcePhysicalMeaning();
@@ -1449,7 +1475,6 @@ double ROUT_Adjust_CTFFast(ProgCTFEstimateFromPSDFast &prm, CTFDescription1D &ou
 		<< std::endl;
 		prm.saveIntermediateResults_fast("step04b_best_fit_with_gaussian2_fast", true);
 	}
-	//prm.saveIntermediateResults_fast("/home/javiermota/Documents/MATLAB/VPP/step05b_estimate_1D_parameters", true);
 	/************************************************************************/
 	/* STEP 12: 2D estimation parameters          							*/
 	/************************************************************************/
@@ -1494,7 +1519,6 @@ double ROUT_Adjust_CTFFast(ProgCTFEstimateFromPSDFast &prm, CTFDescription1D &ou
 		std::cout << "Best fit with 2D parameters:\n" << prm2D->current_ctfmodel << std::endl;
 		prm2D->saveIntermediateResults("step05b_estimate_2D_parameters", true);
 	}
-	//prm2D->saveIntermediateResults("/home/javiermota/Documents/MATLAB/VPP/step05b_estimate_2D_parameters", true);
 	/************************************************************************/
 	/* STEP 13: Produce output                                              */
 	/************************************************************************/
@@ -1523,7 +1547,6 @@ double ROUT_Adjust_CTFFast(ProgCTFEstimateFromPSDFast &prm, CTFDescription1D &ou
         prm2D->current_ctfmodel.lookFor(1, u, z1, 0);
         double z1m = z1.module();
         double z3m = z3.module();
-
 		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(prm2D->mask_between_zeroes)
 		{
 			double wn=DIRECT_MULTIDIM_ELEM(prm2D->w_contfreq, n);

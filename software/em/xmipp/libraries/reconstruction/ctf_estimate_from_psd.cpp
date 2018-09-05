@@ -452,7 +452,7 @@ void ProgCTFEstimateFromPSD::saveIntermediateResults(const FileName &fn_root, bo
         radial_N(r)++;
     }
 
-    FOR_ALL_ELEMENTS_IN_ARRAY1D (radial_CTFmodel_avg)
+    FOR_ALL_ELEMENTS_IN_ARRAY1D(radial_CTFmodel_avg)
     {
         if (radial_N(i) == 0)
             continue;
