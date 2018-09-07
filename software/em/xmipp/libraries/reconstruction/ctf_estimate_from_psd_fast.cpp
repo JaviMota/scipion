@@ -107,8 +107,8 @@ void ProgCTFEstimateFromPSDFast::assignCTFfromParameters_fast(double *p, CTFDesc
     ASSIGN_CTF_PARAM(23, gaussian_K2);
     ASSIGN_CTF_PARAM(24, sigma2);
     ASSIGN_CTF_PARAM(25, Gc2);
-    ASSIGN_CTF_PARAM(26, phase_shift);
-    ASSIGN_CTF_PARAM(27, VPP_radius);
+	ASSIGN_CTF_PARAM(26, phase_shift);
+	ASSIGN_CTF_PARAM(27, VPP_radius);
 
 }//function assignCTFfromParameters
 
@@ -1147,26 +1147,6 @@ void ProgCTFEstimateFromPSDFast::estimate_defoci_fast()
 			}
 			finalIndex++;
 		}
-		//Esto es nuevo para phase shift
-		/*if (current_ctfmodel.VPP_radius != 0.0)
-		{
-			current_ctfmodel.forcePhysicalMeaning();
-			COPY_ctfmodel_TO_CURRENT_GUESS;
-
-			Matrix1D<double> stepsVPP(VPP_PARAMETERS);
-			stepsVPP.initConstant(1);
-			stepsVPP(0) = 0; //Not optimize Defocus
-			stepsVPP(1) = 0; // Do not optimize kV
-			stepsVPP(2) = 0; // Do not optimize K
-			stepsVPP(4) = 0; // Do not optimize Radius
-			(*adjust_params)(0)=current_ctfmodel.Defocus;
-			(*adjust_params)(2)=current_ctfmodel.K;
-			(*adjust_params)(25)=initial_ctfmodel.phase_shift;
-			(*adjust_params)(26)=initial_ctfmodel.VPP_radius;
-			powellOptimizer(*adjust_params, FIRST_DEFOCUS_PARAMETER,
-											VPP_PARAMETERS, CTF_fitness_fast, global_prm, 0.05,
-											fitness, iter, steps, false);
-		}*/
 
 	}
 	// Keep the result in adjust
@@ -1575,6 +1555,7 @@ double ROUT_Adjust_CTFFast(ProgCTFEstimateFromPSDFast &prm, CTFDescription1D &ou
 		prm2D->current_ctfmodel.phase_shift = (prm2D->current_ctfmodel.phase_shift*180)/3.14;
 		if(prm2D->current_ctfmodel.phase_shift<0.0)
 			prm2D->current_ctfmodel.phase_shift = 0.0;
+
 		prm2D->current_ctfmodel.write(fn_rootCTFPARAM + ".ctfparam_tmp");
 		MetaData MD;
 		MD.read(fn_rootCTFPARAM + ".ctfparam_tmp");

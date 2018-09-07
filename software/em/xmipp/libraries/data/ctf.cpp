@@ -1218,8 +1218,11 @@ void CTFDescription::setRow(MDRow &row) const
         row.setValue(MDL_CTF_BG_GAUSSIAN2_CU, cU2);
         row.setValue(MDL_CTF_BG_GAUSSIAN2_CV, cV2);
         row.setValue(MDL_CTF_BG_GAUSSIAN2_ANGLE, gaussian_angle2);
-        row.setValue(MDL_CTF_PHASE_SHIFT, phase_shift);
-        row.setValue(MDL_CTF_VPP_RADIUS, VPP_radius);
+        if(VPP_radius != 0.0)
+        {
+        	row.setValue(MDL_CTF_PHASE_SHIFT, phase_shift);
+        	row.setValue(MDL_CTF_VPP_RADIUS, VPP_radius);
+        }
 
 
     }
