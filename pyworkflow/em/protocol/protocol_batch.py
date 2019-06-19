@@ -72,7 +72,6 @@ class ProtUserSubSet(BatchProtocol):
         setObj = self.createSetObject()
         inputObj = self.inputObject.get()
         other = self.other.get()
-
         if other and ',Volume' in other:
             volId = int(other.split(',')[0])
 
@@ -104,20 +103,26 @@ class ProtUserSubSet(BatchProtocol):
         elif isinstance(inputObj, ParticlesTiltPair):
             output = self._createSubSetFromParticlesTiltPair(inputObj)
 
-        elif isinstance(inputObj, EMProtocol):
-            otherid = self.other.get()
-            otherObj = self.getProject().mapper.selectById(int(otherid))
+        elif isinstance(inputObj, EMProtocol) :
+            if self.other.hasValue():
+                otherid = self.other.get()
+                otherObj = self.getProject().mapper.selectById(int(otherid))
 
-            if isinstance(setObj, SetOfClasses):
-                setObj.setImages(otherObj)
-                self._createSubSetFromClasses(setObj)
+                if isinstance(setObj, SetOfClasses):
+                    setObj.setImages(otherObj)
+                    self._createSubSetFromClasses(setObj)
 
-            elif isinstance(setObj, SetOfImages):
-                setObj.copyInfo(otherObj)  # copy info from original images
-                self._createSubSetFromImages(setObj)
+                elif isinstance(setObj, SetOfImages):
+                    setObj.copyInfo(otherObj)  # copy info from original images
+                    self._createSubSetFromImages(setObj)
 
-            elif isinstance(setObj, SetOfNormalModes):
-                self._createSimpleSubset(otherObj)
+                elif isinstance(setObj, SetOfNormalModes):
+                    self._createSimpleSubset(otherObj)
+            else:
+                if isinstance(setObj, SetOfVolumes):
+                    volSet = SetOfVolumes(filename=self._dbName)
+                    volSet.loadAllProperties()
+                    self._createSimpleSubset(volSet)
 
         else:
             output = self._createSimpleSubset(inputObj)
@@ -447,7 +452,7 @@ class ProtUserSubSet(BatchProtocol):
             if isinstance(inputObj, EMSet):
                 inputStr += ' of size %s' % inputObj.getSize()
         output = ''
-        for _, attr in self.iterOutputAttributes(EMObject):
+        for _, attr in self.iterOutputAttributes():
             output += attr.getClassName()
             if isinstance(attr, EMSet):
                 output += ' of size %s' % attr.getSize()
@@ -504,7 +509,6 @@ class ProtCreateMask(BatchProtocol):
 
     def _methods(self):
         return self._summary()
-
 
 
 class ProtCreateFSC(BatchProtocol):

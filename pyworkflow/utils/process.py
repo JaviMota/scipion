@@ -39,15 +39,16 @@ from utils import greenStr, envVarOn
 # The job should be launched from the working directory!
 def runJob(log, programname, params,           
            numberOfMpi=1, numberOfThreads=1, 
-           hostConfig=None, env=None, cwd=None):
+           hostConfig=None, env=None, cwd=None, gpuList=None):
 
-    command = buildRunCommand(programname, params, numberOfMpi, hostConfig, env)
+    command = buildRunCommand(programname, params, numberOfMpi, hostConfig,
+                              env, gpuList=gpuList)
     
     if log is None:
         print "** Running command: %s" % greenStr(command)
     else:
         log.info(greenStr(command), True)
-        
+
     return runCommand(command, env, cwd)
         
 
@@ -62,11 +63,13 @@ def runCommand(command, env=None, cwd=None):
 
     # TODO: maybe have to set PBS_NODEFILE in case it is used by "command"
     # (useful for example with gnu parallel)
-    check_call(command, shell=True, stdout=sys.stdout, stderr=sys.stderr, env=env, cwd=cwd)
+    check_call(command, shell=True, stdout=sys.stdout, stderr=sys.stderr,
+               env=env, cwd=cwd)
     # It would be nice to avoid shell=True and calling buildRunCommand()...
 
     
-def buildRunCommand(programname, params, numberOfMpi, hostConfig=None, env=None):
+def buildRunCommand(programname, params, numberOfMpi, hostConfig=None,
+                    env=None, gpuList=None):
     """ Return a string with the command line to run """
 
     # Convert our list of params to a string, with each element escaped
@@ -74,12 +77,15 @@ def buildRunCommand(programname, params, numberOfMpi, hostConfig=None, env=None)
     if not isinstance(params, basestring):
         params = ' '.join('"%s"' % p for p in params)
 
+    if gpuList:
+        params = params % {'GPU': ' '.join(str(g) for g in gpuList)}
+
     if numberOfMpi <= 1:
         return '%s %s' % (programname, params)
     else:
         assert hostConfig is not None, 'hostConfig needed to launch MPI processes.'
 
-        if programname.startswith('xmipp'):
+        if programname.startswith('xmipp') and not programname.startswith('xmipp_mpi'):
             programname = programname.replace('xmipp', 'xmipp_mpi')
             
         mpiFlags = '' if env is None else env.get('SCIPION_MPI_FLAGS', '') 
@@ -88,17 +94,6 @@ def buildRunCommand(programname, params, numberOfMpi, hostConfig=None, env=None)
             'JOB_NODES': numberOfMpi,
             'COMMAND': "%s `which %s` %s" % (mpiFlags, programname, params),
         }
-
-
-def loadHostConfig(host='localhost'):
-    """ This function will load the execution host configuration.
-    In there will be information to know how to launch MPI processes
-    and how to submit jobs to the queue system if exists.
-    """
-    from pyworkflow.hosts import HostMapper
-    from pyworkflow import HOME
-    mapper = HostMapper(os.path.join(HOME, '..', 'settings'))
-    return mapper.selectByLabel(host)
 
 
 def killWithChilds(pid):
@@ -118,11 +113,12 @@ def killWithChilds(pid):
     else:
         proc.kill()
 
+
 def isProcessAlive(pid):
     import psutil
     try:
         proc = psutil.Process(pid)
         return proc.is_running()
-    except psutil.NoSuchProcess, e:
+    except psutil.NoSuchProcess:
         return False
 

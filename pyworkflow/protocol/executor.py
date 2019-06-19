@@ -34,16 +34,30 @@ import time
 import datetime
 import traceback
 import threading
+import os
+import signal
+import re
+from subprocess import Popen, PIPE
+from multiprocessing.pool import ThreadPool, TimeoutError
 
 import pyworkflow.utils.process as process
+from pyworkflow.utils.path import getParentFolder, removeExt
+from pyworkflow.utils import greenStr
 import constants as cts
 
+from launch import _submit, UNKNOWN_JOBID
+#from retrying import retry
 
 class StepExecutor():
     """ Run a list of Protocol steps. """
-    def __init__(self, hostConfig):
-        self.hostConfig = hostConfig 
-    
+    def __init__(self, hostConfig, **kwargs):
+        self.hostConfig = hostConfig
+        self.gpuList = kwargs.get(cts.GPU_LIST, None)
+
+    def getGpuList(self):
+        """ Return the GPU list assigned to current thread. """
+        return self.gpuList
+
     def runJob(self, log, programName, params,           
            numberOfMpi=1, numberOfThreads=1, 
            env=None, cwd=None):
@@ -53,7 +67,7 @@ class StepExecutor():
         process.runJob(log, programName, params,
                        numberOfMpi, numberOfThreads, 
                        self.hostConfig,
-                       env=env, cwd=cwd)
+                       env=env, cwd=cwd, gpuList=self.getGpuList())
         
     def _getRunnable(self, steps, n=1):
         """ Return the n steps that are 'new' and all its
@@ -149,9 +163,34 @@ class StepThread(threading.Thread):
 
 class ThreadStepExecutor(StepExecutor):
     """ Run steps in parallel using threads. """
-    def __init__(self, hostConfig, nThreads):
-        StepExecutor.__init__(self, hostConfig)
+    def __init__(self, hostConfig, nThreads, **kwargs):
+        StepExecutor.__init__(self, hostConfig, **kwargs)
         self.numberOfProcs = nThreads
+        # If the gpuList was specified, we need to distribute GPUs among
+        # all the threads
+        self.gpuDict = {}
+
+        if self.gpuList:
+            nodes = range(nThreads)
+            nGpu = len(self.gpuList)
+
+            if nGpu > nThreads:
+                chunk = nGpu / nThreads
+                for i, node in enumerate(nodes):
+                    self.gpuDict[node] = list(self.gpuList[i*chunk:(i+1)*chunk])
+            else:
+                # Expand gpuList repeating until reach nThreads items
+                if nThreads > nGpu:
+                    newList = self.gpuList * (nThreads/nGpu+1)
+                    self.gpuList = newList[:nThreads]
+
+                for node, gpu in zip(nodes, self.gpuList):
+                    self.gpuDict[node] = [gpu]
+
+    def getGpuList(self):
+        """ Return the GPU list assigned to current thread
+        or empty list if not using GPUs. """
+        return self.gpuDict.get(threading.currentThread().thId, [])
         
     def runSteps(self, steps, 
                  stepStartedCallback, 
@@ -169,7 +208,7 @@ class ThreadStepExecutor(StepExecutor):
         sharedLock = threading.Lock()
 
         runningSteps = {}  # currently running step in each node ({node: step})
-        freeNodes = range(self.numberOfProcs)  # available nodes to send mpi jobs
+        freeNodes = range(self.numberOfProcs)  # available nodes to send jobs
 
         while True:
             # See which of the runningSteps are not really running anymore.
@@ -227,13 +266,80 @@ class ThreadStepExecutor(StepExecutor):
             if t is not threading.current_thread():
                 t.join()
 
+class QueueStepExecutor(ThreadStepExecutor):
+    def __init__(self, hostConfig, submitDict, nThreads, **kwargs):
+        ThreadStepExecutor.__init__(self, hostConfig, nThreads, **kwargs)
+        self.submitDict = submitDict
+        # Command counter per thread
+        self.threadCommands = {}
+        for threadId in range(nThreads):
+            self.threadCommands[threadId] = 0
+
+        if nThreads > 1:
+            self.runJobs = ThreadStepExecutor.runSteps
+        else:
+            self.runJobs = StepExecutor.runSteps
+
+
+    def runJob(self, log, programName, params, numberOfMpi=1, numberOfThreads=1, env=None, cwd=None):
+        threadId = threading.current_thread().thId
+        submitDict = dict(self.hostConfig.getQueuesDefault())
+        submitDict.update(self.submitDict)
+        submitDict['JOB_COMMAND'] = process.buildRunCommand(programName, params, numberOfMpi, self.hostConfig, env, gpuList=self.getGpuList())
+        self.threadCommands[threadId] += 1
+        subthreadId = '-%s-%s' % (threadId, self.threadCommands[threadId])
+        submitDict['JOB_NAME'] = submitDict['JOB_NAME'] + subthreadId
+        submitDict['JOB_SCRIPT'] = os.path.abspath(removeExt(submitDict['JOB_SCRIPT']) + subthreadId + ".job")
+        submitDict['JOB_LOGS'] = os.path.join(getParentFolder(submitDict['JOB_SCRIPT']), submitDict['JOB_NAME'])
+
+        jobid = _submit(self.hostConfig, submitDict, cwd, env)
+
+        if (jobid is None) or (jobid == UNKNOWN_JOBID):
+            print("jobId is none therefore we set it to fail")
+            raise Exception("Failed to submit to queue.")
+
+        status = cts.STATUS_RUNNING
+        wait = 3
+
+        # Check status while job running
+        # REVIEW this to minimize the overhead in time put by this delay check
+        while self._checkJobStatus(self.hostConfig, jobid) == cts.STATUS_RUNNING:
+            time.sleep(wait)
+            if wait < 300:
+                wait += 3
+
+        return status
+
+
+    def _checkJobStatus(self, hostConfig, jobid):
+
+        command = hostConfig.getCheckCommand() % {"JOB_ID": jobid}
+        p = Popen(command, shell=True, stdout=PIPE, preexec_fn=os.setsid)
+
+        out = p.communicate()[0]
+
+        jobDoneRegex = hostConfig.getJobDoneRegex()
+
+        # If nothing is returned we assume job is no longer in queue and thus finished
+        if out == "":
+            return cts.STATUS_FINISHED
+        # If some string is returned we use the JOB_DONE_REGEX variable (if present) to infer the status
+        elif jobDoneRegex != None:
+            s = re.search(jobDoneRegex, out)
+            if s:
+                return cts.STATUS_FINISHED
+            else:
+                return cts.STATUS_RUNNING
+        # If JOB_DONE_REGEX is not defined and queue has returned something we assume that job is still running
+        else:
+            return cts.STATUS_RUNNING
 
 class MPIStepExecutor(ThreadStepExecutor):
     """ Run steps in parallel using threads.
     But call runJob through MPI workers.
     """
-    def __init__(self, hostConfig, nMPI, comm):
-        ThreadStepExecutor.__init__(self, hostConfig, nMPI)
+    def __init__(self, hostConfig, nMPI, comm, **kwargs):
+        ThreadStepExecutor.__init__(self, hostConfig, nMPI, **kwargs)
         self.comm = comm
     
     def runJob(self, log, programName, params,
@@ -243,7 +349,8 @@ class MPIStepExecutor(ThreadStepExecutor):
         from pyworkflow.utils.mpi import runJobMPI
         node = threading.current_thread().thId + 1
         runJobMPI(programName, params, self.comm, node,
-                  numberOfMpi, hostConfig=self.hostConfig, env=env, cwd=cwd)
+                  numberOfMpi, hostConfig=self.hostConfig, env=env, cwd=cwd,
+                  gpuList=self.getGpuList())
 
     def runSteps(self, steps, 
                  stepStartedCallback, 
@@ -253,7 +360,8 @@ class MPIStepExecutor(ThreadStepExecutor):
         ThreadStepExecutor.runSteps(self, steps, 
                                     stepStartedCallback, 
                                     stepFinishedCallback,
-                                    checkStepsCallback)
+                                    checkStepsCallback,
+                                    stepsCheckSecs=stepsCheckSecs)
 
         # Import mpi here so if MPI4py was not properly compiled
         # we can still run in parallel with threads.

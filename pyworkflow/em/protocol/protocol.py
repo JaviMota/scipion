@@ -24,23 +24,28 @@
 # *
 # **************************************************************************
 
+import time
 from itertools import izip
 
 from pyworkflow.protocol import Protocol
+import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
 from pyworkflow.em.data import (SetOfMicrographs, SetOfCoordinates,
                                 SetOfParticles, SetOfImages,
                                 SetOfClasses2D, SetOfClasses3D, SetOfClassesVol,
                                 SetOfVolumes, SetOfCTF, SetOfMovies, SetOfFSCs,
                                 SetOfMovieParticles, SetOfAverages,
+<<<<<<< HEAD
                                 SetOfNormalModes, SetOfPDBs, SetOfTrajectories)
+=======
+                                SetOfNormalModes, SetOfAtomStructs)
+>>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927
 from pyworkflow.em.constants import (RELATION_SOURCE, RELATION_TRANSFORM,
                                      RELATION_CTF)
 from pyworkflow.em.data_tiltpairs import (SetOfAngles, CoordinatesTiltPair,
                                           TiltPair)
 from pyworkflow.utils.path import cleanPath
 from pyworkflow.mapper.sqlite_db import SqliteDb
-
 
 
 class EMProtocol(Protocol):
@@ -52,7 +57,7 @@ class EMProtocol(Protocol):
     def __init__(self, **kwargs):
         Protocol.__init__(self, **kwargs)
         
-    def __createSet(self, SetClass, template, suffix):
+    def __createSet(self, SetClass, template, suffix, **kwargs):
         """ Create a set and set the filename using the suffix. 
         If the file exists, it will be delete. """
         setFn = self._getPath(template % suffix)
@@ -61,23 +66,27 @@ class EMProtocol(Protocol):
         cleanPath(setFn)
         
         SqliteDb.closeConnection(setFn)        
-        setObj = SetClass(filename=setFn)
+        setObj = SetClass(filename=setFn, **kwargs)
         return setObj
     
     def _createSetOfMicrographs(self, suffix=''):
         return self.__createSet(SetOfMicrographs,
-                                'micrographs%s.sqlite', suffix)
+                                'micrographs%s.sqlite', suffix,
+                                indexes=['_index'])
     
     def _createSetOfCoordinates(self, micSet, suffix=''):
         coordSet = self.__createSet(SetOfCoordinates,
-                                    'coordinates%s.sqlite', suffix)
+                                    'coordinates%s.sqlite', suffix,
+                                    indexes=['_micId'])
         coordSet.setMicrographs(micSet)       
         return coordSet
 
     def _createCoordinatesTiltPair(self, micTiltPairs, uCoords, tCoords,
                                    angles, suffix):
         coordTiltPairs = self.__createSet(CoordinatesTiltPair,
-                                          'coordinates_pairs%s.sqlite', suffix)
+                                          'coordinates_pairs%s.sqlite', suffix,
+                                          indexes=['_untilted._micId',
+                                                   '_tilted._micId'])
         coordTiltPairs.setUntilted(uCoords)
         coordTiltPairs.setTilted(tCoords)
         coordTiltPairs.setAngles(angles)
@@ -97,7 +106,8 @@ class EMProtocol(Protocol):
         return self.__createSet(SetOfImages, 'images%s.sqlite', suffix)
 
     def _createSetOfParticles(self, suffix=''):
-        return self.__createSet(SetOfParticles, 'particles%s.sqlite', suffix)
+        return self.__createSet(SetOfParticles, 'particles%s.sqlite', suffix,
+                                indexes=['_classId', '_micId'])
 
     def _createSetOfAverages(self, suffix=''):
         return self.__createSet(SetOfAverages, 'averages%s.sqlite', suffix)
@@ -141,7 +151,7 @@ class EMProtocol(Protocol):
         return self.__createSet(SetOfFSCs, 'fscs%s.sqlite', suffix)
        
     def _createSetOfPDBs(self, suffix=''):
-        return self.__createSet(SetOfPDBs, 'pdbs%s.sqlite', suffix)
+        return self.__createSet(SetOfAtomStructs, 'pdbs%s.sqlite', suffix)
 
     def _createSetOfTrajectories(self, suffix=''):
         return self.__createSet(SetOfTrajectories, 'dcds%s.sqlite', suffix)
@@ -195,4 +205,122 @@ class EMProtocol(Protocol):
             return True
         return False
         
-    
+    # ------ Methods for Streaming picking --------------
+
+    def _defineStreamingParams(self, form):
+        """ This function can be called during the _defineParams method
+        of some protocols that support stream processing.
+        It will add an Streaming section together with the following
+        params:
+            streamingSleepOnWait: Some streaming protocols are quite fast,
+                so, checking input/ouput updates creates an IO overhead.
+                This params allows them to sleep (without consuming resources)
+                to wait for new work to be done.
+            streamingBatchSize: For some programs it is more efficient to process
+                many items at once and not one by one. So this parameter will
+                allow to group a number of items to be processed in the same
+                protocol step. This can also reduce some IO overhead and spawing
+                new OS processes.
+        """
+        form.addSection("Streaming")
+        form.addParam("streamingWarning", params.LabelParam, important=True,
+                      label="The following params are related to how "
+                            "streaming is done in Scipion.")
+        form.addParam("streamingSleepOnWait", params.IntParam, default=0,
+                      label="Sleep when waiting (secs)",
+                      help="If you specify a value greater than zero, "
+                           "it will be the number of seconds that the "
+                           "protocol will sleep when waiting for new "
+                           "input data in streaming mode. ")
+        form.addParam("streamingBatchSize", params.IntParam, default=1,
+                      label="Batch size",
+                      help="This value allows to group several items to be "
+                           "processed inside the same protocol step. You can "
+                           "use the following values: \n"
+                           "*1*    The default behavior, the items will be "
+                           "processed one by one.\n"
+                           "*0*    Put in the same step all the items "
+                           "available. If the sleep time is short, it could be "
+                           "practically the same of one by one. If not, you "
+                           "could have steps with more items. If the steps will "
+                           "be executed in parallel, it is better not to use "
+                           "this option.\n"
+                           "*>1*   The number of items that will be grouped into "
+                           "a step.")
+
+    def _getStreamingSleepOnWait(self):
+        return self.getAttributeValue('streamingSleepOnWait', 0)
+
+    def _getStreamingBatchSize(self):
+        return self.getAttributeValue('streamingBatchSize', 1)
+
+    def _streamingSleepOnWait(self):
+        """ This method should be used by protocols that want to sleep
+        when there is not more work to do.
+        """
+        sleepOnWait = self._getStreamingSleepOnWait()
+        if sleepOnWait > 0:
+            self.info("Not much work to do now, sleeping %s seconds."
+                      % sleepOnWait)
+            time.sleep(sleepOnWait)
+
+
+    def _insertNewMics(self, inputMics, getMicKeyFunc,
+                       insertStepFunc, insertStepListFunc, *args):
+        """ Insert steps of new micrographs taking into account the batch size.
+        It is assumed that a self.micDict exists mapping between micKey and mic.
+        It is also assumed that self.streamClosed is defined...with True value
+        if the input stream is closed.
+        This function can be used from several base protocols that support
+        streaming and batch:
+
+        - ProtCTFMicrographs
+        - ProtParticlePickingAuto
+        - ProtExtractParticles
+        Params:
+            inputMics: the input micrographs to be inserted into steps
+            getMicKeyFunc: function to get the key of a micrograph
+                (usually mic.getMicName()
+            insertStepFunc: function used to insert a single step
+            insertStepListFunc: function used to insert many steps.
+            *args: argument list to be passed to step functions
+        Returns:
+            The list of step Ids that can be used as dependencies.
+        """
+        deps = []
+        insertedMics = inputMics
+
+        # Despite this function only should insert new micrographs
+        # let's double check that they are not inserted already
+        micList = [mic for mic in inputMics
+                   if getMicKeyFunc(mic) not in self.micDict]
+
+        def _insertSubset(micSubset):
+            stepId = insertStepListFunc(micSubset, self.initialIds, *args)
+            deps.append(stepId)
+
+        # Now handle the steps depending on the streaming batch size
+        batchSize = self._getStreamingBatchSize()
+
+        if batchSize == 1: # This is one by one, as before the batch size
+            for mic in micList:
+                stepId = insertStepFunc(mic, self.initialIds, *args)
+                deps.append(stepId)
+        elif batchSize == 0:  # Greedy, take all available ones
+            _insertSubset(micList)
+        else:  # batchSize > 0, insert only batches of this size
+            n = len(inputMics)
+            d = n / batchSize # number of batches to insert
+            nd = d * batchSize
+            for i in range(d):
+                _insertSubset(micList[i*batchSize:(i+1)*batchSize])
+
+            if n > nd and self.streamClosed:  # insert last ones
+                _insertSubset(micList[nd:])
+            else:
+                insertedMics = micList[:nd]
+
+        for mic in insertedMics:
+            self.micDict[getMicKeyFunc(mic)] = mic
+
+        return deps

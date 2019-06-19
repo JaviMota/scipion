@@ -115,11 +115,15 @@ DataSet(name='relion_tutorial', folder='relion_tutorial',
                'particles': 'gold/particles.sqlite',
                'posAllDir': 'pickingXmipp',
                'relion_it020_data': 'gold/relion_it020_data.star',
+               'relion_it020_data_newlabels': 'gold/relion_it020_data_newlabels.star',
                'volume': 'volumes/reference.mrc',
                'import1_data_star': 'import/case1/classify3d_small_it038_data.star',
                'import2_data_star': 'import/case2/relion_it015_data.star',
                'particles_binary': '006.stk'
         })
+
+
+DataSet(name='relion30_tutorial', folder='relion30_tutorial', files={})
 
 
 DataSet(name='ribo_movies', folder='ribo_movies',
@@ -152,8 +156,8 @@ DataSet(name='emx', folder='emx',
                'alignFlip': 'alignment/alignFlip.mrcs',
                'alignFlip2': 'alignment/alignFlip2.mrcs',
                'alignShiftRotExp': 'alignment/Test1/images.mrc',
-               'alignShiftRotExpGold':
-               'alignment/gold/align_shift_rot_exp_gold.mrcs',
+               'alignShiftRotExpGold': 'alignment/gold/align_shift_rot_exp_gold.mrcs',
+
                'alignReconst': 'alignment/recons.mrcs',
                'alignReconstShift': 'alignment/recons_sh.mrcs',
                'alignRotOnly': 'alignment/align_rot_only.mrcs',
@@ -190,6 +194,7 @@ DataSet(name='emx', folder='emx',
                'reconstRotandShiftFlipGold':
                'reconstruction/gold/reconstRotandShiftFlip_output.vol'})
 
+
 DataSet(name='CTFDiscrepancy',  folder='CTFDiscrepancy',
         files={
                'emxMicrographCtf1': 'ctfindCTFEstimation.emx',
@@ -202,8 +207,13 @@ DataSet(name='movies',  folder='movies',
                'movie2': 'ribo/Falcon_2012_06_12-16_55_40_0_movie.mrcs',
                'movie3': 'ribo/Falcon_2012_06_12-17_26_54_0_movie.mrcs',
                'movie4': 'qbeta/qbeta.mrc',
-               'movie5': 'cct/cct_1.em'})
-
+               'movie5': 'cct/cct_1.em',
+               'falcon2012_1': 'Falcon_2012_06_12-16_55_40_0_movie.mrcs',
+               'mrcGain': 'gain.mrc',
+               'mrcDark': 'dark.mrc',
+               'spiGain': 'gain.spi',
+               'spiDark': 'dark.spi',
+               })
 DataSet(name='riboMovies',  folder='riboMovies',
         files={'movie1': '30_movie_gc_window.mrcs',
                'movie2': '35_movie_gc_window.mrcs',
@@ -213,18 +223,20 @@ DataSet(name='riboMovies',  folder='riboMovies',
                'allMovies': '*.mrcs'})
 
 DataSet(name='jmbFalconMovies',  folder='jmbFalconMovies',
-        files={'movie1': 'Falcon_2014_07_16-16_32_43_0.mrcs',
-               'movie2': 'Falcon_2014_07_16-21_37_37_0.mrcs',
-               'movie3': 'Falcon_2014_07_16-23_30_50_0.mrcs',
-               'movie4': 'Falcon_2014_07_17-03_21_57_0.mrcs',
-               'movie5': 'Falcon_2014_07_17-06_55_56_0.mrcs',
-               'allMovies': '*.mrcs'})
+        files={'movie1':'Falcon_2014_07_16-16_32_43_0.mrcs',
+               'movie2':'Falcon_2014_07_16-21_37_37_0.mrcs',
+               'movie3':'Falcon_2014_07_16-23_30_50_0.mrcs',
+               'movie4':'Falcon_2014_07_17-03_21_57_0.mrcs',
+               'movie5':'Falcon_2014_07_17-06_55_56_0.mrcs',
+               'allMovies':'*.mrcs'})
 
+               
 DataSet(name='grigorieff',  folder='grigorieff',
-        files={'particles_rot_shift': 'particles.sqlite',
-               'ref_volume': 'ref_volume.vol',
+        files={'particles_rot_shift':'particles.sqlite',
+               'ref_volume':'ref_volume.vol',
                'ctfsDir': 'ctfs'})
 
+               
 DataSet(name='initial_volume',  folder='initial_volume',
         files={'groel': 'groel_64.stk',
                'ribosome': 'ribosomeFrank_64_preprocessed.stk',
@@ -240,6 +252,7 @@ DataSet(name='SymVirus', folder='SymVirus',
 
 DataSet(name='xmipp_programs', folder='xmipp_programs', files={})
 
+               
 DataSet(name='resmap',  folder='resmap',
         files={'betagal': 'betaGal.mrc',
                'betagal_half1': 'betaGal_half01.mrc',
@@ -253,3 +266,12 @@ DataSet(name='10010',  folder='10010',
 DataSet(name='model_building_tutorial', folder='model_building_tutorial',
         files={'vol1': 'volumes/1ake_4-5A.mrc',
                'pdb1': 'PDBs/1ake_start.pdb'})
+
+DataSet(name='eman', folder='eman',
+        files={
+               'micU': 'mics/ip3r10252011-0005_0-2.hdf',
+               'micT': 'mics/ip3r10252011-0005_10.hdf',
+               'volume': '3DmapIP3R1_clip_376apix.mrc',
+               'coords': 'coords/*.json',
+               'ctfs': 'ctfs/'
+               })

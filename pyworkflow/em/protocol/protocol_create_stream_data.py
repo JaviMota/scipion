@@ -31,7 +31,6 @@ from collections import OrderedDict
 import pyworkflow.protocol.params as params
 from protocol import EMProtocol
 import time
-import xmipp
 import random
 
 from pyworkflow import VERSION_1_1
@@ -39,12 +38,15 @@ from pyworkflow.em.data import SetOfMicrographs, Micrograph, Acquisition, Movie,
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from os.path import basename
 from pyworkflow.em.convert import ImageHandler
+from pyworkflow.utils import importFromPlugin
+
+import xmippLib
+
 
 SET_OF_MOVIES = 0
 SET_OF_MICROGRAPHS = 1
 SET_OF_RANDOM_MICROGRAPHS = 2
 SET_OF_PARTICLES = 3
-
 
 
 class ProtCreateStreamData(EMProtocol):
@@ -138,7 +140,7 @@ class ProtCreateStreamData(EMProtocol):
         elif self.setof == SET_OF_MICROGRAPHS:
             step = 'createStep'
         elif self.setof == SET_OF_RANDOM_MICROGRAPHS:
-            step = 'createRandomMicAtep'
+            step = 'createRandomMicStep'
         elif self.setof == SET_OF_PARTICLES:
             step = 'createParticlesStep'
         else:
@@ -173,20 +175,41 @@ class ProtCreateStreamData(EMProtocol):
         else:
             objSet.setStreamState(objSet.STREAM_OPEN)
             acquisition = Acquisition()
-            acquisition.setMagnification(self._magnification)
-            acquisition.setVoltage(self._voltage)
-            acquisition.setSphericalAberration(self._sphericalAberration)
-            acquisition.setAmplitudeContrast(self._amplitudeContrast)
-            objSet.setAcquisition(acquisition)
-            if self.setof != SET_OF_MICROGRAPHS:
-                objSet.setSamplingRate(self.samplingRate.get())
-            else:
+            if self.setof == SET_OF_MICROGRAPHS:
+                acquisition.setMagnification(
+                    self.inputMics.get().getAcquisition().getMagnification())
+                acquisition.setVoltage(
+                    self.inputMics.get().getAcquisition().getVoltage())
+                acquisition.setSphericalAberration(
+                    self.inputMics.get().getAcquisition().getSphericalAberration())
+                acquisition.setAmplitudeContrast(
+                    self.inputMics.get().getAcquisition().getAmplitudeContrast())
+                objSet.setAcquisition(acquisition)
                 objSet.setSamplingRate(self.inputMics.get().getSamplingRate())
-            if self.setof != SET_OF_MOVIES:
-                objSet.setSamplingRate(self.samplingRate.get())
-            else:
+            elif self.setof == SET_OF_MOVIES:
+                acquisition.setMagnification(
+                    self.inputMovies.get().getAcquisition().getMagnification())
+                acquisition.setVoltage(
+                    self.inputMovies.get().getAcquisition().getVoltage())
+                acquisition.setSphericalAberration(
+                    self.inputMovies.get().getAcquisition().getSphericalAberration())
+                acquisition.setAmplitudeContrast(
+                    self.inputMovies.get().getAcquisition().getAmplitudeContrast())
+                objSet.setAcquisition(acquisition)
                 objSet.setSamplingRate(
                     self.inputMovies.get().getSamplingRate())
+            else:
+                acquisition.setMagnification(self._magnification)
+                acquisition.setVoltage(self._voltage)
+                acquisition.setSphericalAberration(self._sphericalAberration)
+                acquisition.setAmplitudeContrast(self._amplitudeContrast)
+                objSet.setAcquisition(acquisition)
+                if self.setof == SET_OF_PARTICLES:
+                    objSet.setSamplingRate(
+                        self.inputParticles.get().getSamplingRate())
+                else:
+                    objSet.setSamplingRate(self.samplingRate.get())
+
 
         if self.setof == SET_OF_MOVIES:
             obj = Movie()
@@ -214,14 +237,17 @@ class ProtCreateStreamData(EMProtocol):
     def _updateOutput(self, objSet):
         if self.setof == SET_OF_MOVIES:
             self._defineOutputs(outputMovies=objSet)
+            self._defineTransformRelation(self.inputMovies, objSet)
         elif self.setof == SET_OF_MICROGRAPHS:
             self._defineOutputs(outputMicrographs=objSet)
+            self._defineTransformRelation(self.inputMics, objSet)
         elif self.setof == SET_OF_RANDOM_MICROGRAPHS:
             self._defineOutputs(outputMicrographs=objSet)
         elif self.setof == SET_OF_PARTICLES:
             self._defineOutputs(outputParticles=objSet)
+            self._defineTransformRelation(self.inputParticles, objSet)
 
-    def _stepsCheck(self):
+    def _checkProcessedData(self):
         if self.setof == SET_OF_MOVIES:
             objSet = SetOfMovies(filename=self._getPath('movies.sqlite'))
         elif self.setof == SET_OF_MICROGRAPHS:
@@ -252,7 +278,7 @@ class ProtCreateStreamData(EMProtocol):
         newObjSet.close()
 
     def createStep(self, counter):
-
+        time.sleep(self.creationInterval.get())
         if not ProtCreateStreamData.object or self.setof == \
                 SET_OF_MICROGRAPHS or self.setof == SET_OF_MOVIES:
 
@@ -276,24 +302,16 @@ class ProtCreateStreamData(EMProtocol):
                     ImageHandler().read(newMic.getLocation())
                 self.name = "micro"
 
-
-            elif self.setof == SET_OF_PARTICLES:
-                for idx, p in enumerate(self.inputParticles.get()):
-                    if idx == counter:
-                        particle = p.clone()
-                ProtCreateStreamData.object = \
-                    ImageHandler().read(particle.getLocation())
-                self.name = "particle"
-
         # save file
         destFn = self._getExtraPath("%s_%05d" % (self.name, counter))
         ProtCreateStreamData.object.write(destFn)
         self.dictObj[destFn] = True
-        time.sleep(self.creationInterval.get())
-
+        self._checkProcessedData()
 
     def createParticlesStep(self):
         self.name = "particle"
+        time.sleep(self.creationInterval.get())
+
         for idx, p in enumerate(self.inputParticles.get()):
             if ((idx > self.counter-1) and (idx < self.nDims) and
                     (idx <= self.counter-1 + self.group)):
@@ -303,29 +321,30 @@ class ProtCreateStreamData(EMProtocol):
                 destFn = self._getExtraPath("%s_%05d" % (self.name, idx))
                 ProtCreateStreamData.object.write(destFn)
                 self.dictObj[destFn] = True
-        time.sleep(self.creationInterval.get())
-        self._stepsCheck()
+        self._checkProcessedData()
 
-    def createRandomMicAtep(self, mic):
-        from pyworkflow.em.packages.xmipp3 import getEnviron
+
+    def createRandomMicStep(self, mic):
+        time.sleep(self.creationInterval.get())
+        getEnviron = importFromPlugin('xmipp3', 'Plugin').getEnviron
 
         # create image
-        img = xmipp.Image()
-        img.setDataType(xmipp.DT_FLOAT)
+        img = xmippLib.Image()
+        img.setDataType(xmippLib.DT_FLOAT)
         img.resize(self.xDim, self.yDim)
-        img.initRandom(0., 1., xmipp.XMIPP_RND_UNIFORM)
+        img.initRandom(0., 1., xmippLib.XMIPP_RND_UNIFORM)
         baseFn = self._getExtraPath(self._singleImageFn)
         img.write(baseFn)
 
-        md1 = xmipp.MetaData()
+        md1 = xmippLib.MetaData()
         md1.setColumnFormat(False)
         idctf = md1.addObject()
 
         baseFnCtf = self._getTmpPath("ctf_%d.param" % mic)
         baseFnImageCTF = self._getExtraPath("imageCTF_%d.xmp" % mic)
 
-        md1.setValue(xmipp.MDL_CTF_SAMPLING_RATE, 1., idctf)
-        md1.setValue(xmipp.MDL_CTF_VOLTAGE, 200., idctf)
+        md1.setValue(xmippLib.MDL_CTF_SAMPLING_RATE, 1., idctf)
+        md1.setValue(xmippLib.MDL_CTF_VOLTAGE, 200., idctf)
         defocus = 20000 + 10000 * random.random()
         udefocus = defocus + 1000 * random.random()
         vdefocus = defocus + 1000 * random.random()
@@ -333,13 +352,13 @@ class ProtCreateStreamData(EMProtocol):
             aux = vdefocus
             vdefocus = udefocus
             udefocus = aux
-        md1.setValue(xmipp.MDL_CTF_DEFOCUSU, udefocus, idctf)
-        md1.setValue(xmipp.MDL_CTF_DEFOCUSV, vdefocus, idctf)
-        md1.setValue(xmipp.MDL_CTF_DEFOCUS_ANGLE, 180.0 * random.random(),
+        md1.setValue(xmippLib.MDL_CTF_DEFOCUSU, udefocus, idctf)
+        md1.setValue(xmippLib.MDL_CTF_DEFOCUSV, vdefocus, idctf)
+        md1.setValue(xmippLib.MDL_CTF_DEFOCUS_ANGLE, 180.0 * random.random(),
                      idctf)
-        md1.setValue(xmipp.MDL_CTF_CS, 2., idctf)
-        md1.setValue(xmipp.MDL_CTF_Q0, 0.07, idctf)
-        md1.setValue(xmipp.MDL_CTF_K, 1., idctf)
+        md1.setValue(xmippLib.MDL_CTF_CS, 2., idctf)
+        md1.setValue(xmippLib.MDL_CTF_Q0, 0.07, idctf)
+        md1.setValue(xmippLib.MDL_CTF_K, 1., idctf)
 
         md1.write(baseFnCtf)
 
@@ -350,7 +369,7 @@ class ProtCreateStreamData(EMProtocol):
         args += " --sampling %f" % self.samplingRate
         self.runJob("xmipp_transform_filter", args, env=getEnviron())
         self.dictObj[baseFnImageCTF] = True
-        time.sleep(self.creationInterval.get())
+        self._checkProcessedData()
 
     # -------------------------- INFO functions ------------------------------
     def _validate(self):

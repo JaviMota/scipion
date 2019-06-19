@@ -114,7 +114,7 @@ class TextView(View):
         showTextFileViewer(self._title, self._filelist, self._tkParent)
 
 
-#----------------- Viewers ----------------------------------------
+# ---------------- Viewers ----------------------------------------
     
 class Viewer(object):
     """ A Viewer will provide several Views to visualize
@@ -209,7 +209,7 @@ class Viewer(object):
                 to the ObjectView constructor
         """
         # We can not import em globally
-        from pyworkflow.em import ObjectView
+        from pyworkflow.em.viewers.views import ObjectView
         fn = None
 
         if isinstance(filenameOrObject, basestring):
@@ -359,7 +359,8 @@ class ProtocolViewer(Protocol, Viewer):
                 values += map(int, e.split())
         return values
 
-    def createVolumesSqlite(self, files, path, samplingRate):
+    def createVolumesSqlite(self, files, path, samplingRate,
+                            updateItemCallback=None):
         from em import SetOfVolumes, Volume
         cleanPath(path)
         volSet = SetOfVolumes(filename=path)
@@ -368,6 +369,8 @@ class ProtocolViewer(Protocol, Viewer):
         for volFn in files:
             vol = Volume()
             vol.setFileName(volFn)
+            if updateItemCallback:
+                updateItemCallback(vol)
             volSet.append(vol)
         volSet.write()
         volSet.close()

@@ -27,85 +27,180 @@
 
 import os
 import time
+import json
+import argparse
+
 from pyworkflow.em import *
-from pyworkflow.config import *
+from pyworkflow.protocol import (getProtocolFromDb,
+                                 STATUS_FINISHED, STATUS_ABORTED, STATUS_FAILED)
 
 # Add callback for remote debugging if available.
 try:
     from rpdb2 import start_embedded_debugger
     from signal import signal, SIGUSR2
+
     signal(SIGUSR2, lambda sig, frame: start_embedded_debugger('a'))
 except ImportError:
     pass
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 2:
-        projPath = sys.argv[1]
-        dbPath = sys.argv[2]
-        protId = int(sys.argv[3])
-        from pyworkflow.protocol import runProtocolMain, getProtocolFromDb
+class RunScheduler():
+    """ Check that all dependencies are met before launching a run. """
+
+    def _parseArgs(self):
+        parser = argparse.ArgumentParser()
+        _addArg = parser.add_argument  # short notation
+
+        _addArg("projPath", metavar='PROJECT_NAME',
+                help="Project database path.")
+
+        _addArg("dbPath", metavar='DATABASE_PATH',
+                help="Protocol database path.")
+
+        _addArg("protId", type=int, metavar='PROTOCOL_ID',
+                help="Protocol ID.")
+
+        _addArg("--sleep_time", type=int, default=15,
+                dest='sleepTime', metavar='SECONDS',
+                help="Sleeping time (in seconds) between updates.")
+
+        _addArg("--wait_for", nargs='*', type=int, default=[],
+                dest='waitProtIds', metavar='PROTOCOL_ID',
+                help="List of protocol ids that should be not running "
+                     "(i.e, finished, aborted or failed) before this "
+                     "run will be executed.")
+
+        self._args = parser.parse_args()
+
+    def _loadProtocol(self):
+        return getProtocolFromDb(self._args.projPath,
+                                 self._args.dbPath,
+                                 self._args.protId, chdir=True)
+
+    def main(self):
+        self._parseArgs()
+
+        stopStatuses = [STATUS_FINISHED, STATUS_ABORTED, STATUS_FAILED]
 
         # Enter to the project directory and load protocol from db
-        protocol = getProtocolFromDb(projPath, dbPath, protId, chdir=True)
+        protocol = self._loadProtocol()
         mapper = protocol.getMapper()
 
         log = open(protocol._getLogsPath('schedule.log'), 'w')
         pid = os.getpid()
         protocol.setPid(pid)
 
+        prerequisites = map(int, protocol.getPrerequisites())
+
         def _log(msg):
             print >> log, "%s: %s" % (pwutils.prettyTimestamp(), msg)
             log.flush()
 
-        _log("Scheduling protocol %s, pid: %s" % (protId, pid))
+        _log("Scheduling protocol %s, pid: %s, prerequisites: %s"
+             % (protocol.getObjId(), pid, prerequisites))
 
         mapper.store(protocol)
         mapper.commit()
         mapper.close()
 
+        # Keep track of the last time the protocol was checked and
+        # its modification date to avoid unnecessary db opening
+        lastCheckedDict = {}
+
+        def _updateProtocol(protocol, project):
+            protDb = protocol.getDbPath()
+
+            if os.path.exists(protDb):
+                protId = protocol.getObjId()
+                lastChecked = lastCheckedDict.get(protId, None)
+                lastModified = pwutils.getFileLastModificationDate(protDb)
+
+                if lastChecked is None or (lastModified > lastChecked):
+                    project._updateProtocol(protocol,
+                                            skipUpdatedProtocols=False)
+                    _log("Updated protocol %s" % protId)
+
+        def _getProtocolFromPointer(pointer):
+            """
+            The function return a protocol from an attribute
+
+               A) When the pointer points to a protocol
+
+               B) When the pointer points to another object (INDIRECTLY).
+                  - The pointer has an _extended value (new parameters
+                    configuration in the protocol)
+
+               C) When the pointer points to another object (DIRECTLY).
+                  - The pointer has not an _extended value (old parameters
+                    configuration in the protocol)
+            """
+            output = pointer.get()
+            if isinstance(output, Protocol):  # case A
+                protocol = output
+            else:
+                if pointer.hasExtended():  # case B
+                    protocol = pointer.getObjValue()
+                else:  # case C
+                    protocol = self.getProject().getProtocol(
+                        output.getObjParentId())
+            return protocol
+
         while True:
-            protocol = getProtocolFromDb(projPath, dbPath, protId, chdir=True)
+            protocol = self._loadProtocol()
             project = protocol.getProject()
 
             # Check if there are missing inputs
             missing = False
-            # Keep track of the last time the protocol was checked and
-            # its modification date to avoid unnecesary db opening
-            lastCheckedDict = {}
+            # Check if there are input protocols failed or aborted
+            failedInputProtocols = False
 
+            _log("Checking input data...")
             for key, attr in protocol.iterInputAttributes():
-                if attr.hasValue() and attr.get() is None:
-                    missing = True
-                    inputProt = attr.getObjValue()
-                    protDb = inputProt.getDbPath()
+                inputProt = _getProtocolFromPointer(attr)
+                _updateProtocol(inputProt, project)
+                if (inputProt.getStatus() == STATUS_ABORTED or
+                        inputProt.getStatus() == STATUS_FAILED):
+                    failedInputProtocols = True
 
-                    # One of the required input protocols has not even started
-                    if not os.path.exists(protDb):
-                        continue
+            if not failedInputProtocols:
+                if len(protocol.validate()) > 0:
+                        missing = True
+                elif not protocol.worksInStreaming():
+                    for key, attr in protocol.iterInputAttributes():
+                        pointer = attr.get()
+                        if isinstance(pointer, Set) and pointer.isStreamOpen():
+                            missing = True
+                            break
 
+                if not missing:
+                    inputProtocolDict = protocol.inputProtocolDict()
+                    for prot in inputProtocolDict.values():
+                        _updateProtocol(prot, project)
 
-                    inputProtId = inputProt.getObjId()
-                    lastChecked = lastCheckedDict.get(inputProtId, None)
-                    lastModified = pwutils.getFileLastModificationDate(protDb)
+            _log("Checking prerequisited...")
+            wait = False  # Check if we need to wait for required protocols
+            for protId in prerequisites:
+                prot = project.getProtocol(protId)
+                if prot is not None:
+                    _updateProtocol(prot, project)
+                    if prot.getStatus() not in stopStatuses:
+                        wait = True
 
-                    if lastChecked is None or (lastModified > lastChecked):
-                        project._updateProtocol(inputProt,
-                                                skipUpdatedProtocols=False)
-                        _log("Updated protocol %s" % inputProtId)
-
-            if not missing:
+            if not missing and not wait:
                 break
 
             project.mapper.commit()
             project.mapper.close()
 
-            _log("Still missing input, sleeping...")
-            time.sleep(15)
+            _log("Still missing input, sleeping %s seconds..."
+                 % self._args.sleepTime)
+            time.sleep(self._args.sleepTime)
 
         _log("Launching the protocol >>>>")
         log.close()
-        project.launchProtocol(protocol, scheduled=True)
-    else:
-        from os.path import basename
-        print "usage: %s dbPath protocolID" % basename(sys.argv[0])
+        project.launchProtocol(protocol, scheduled=True, force=True)
+
+
+if __name__ == '__main__':
+    scheduler = RunScheduler()
+    scheduler.main()

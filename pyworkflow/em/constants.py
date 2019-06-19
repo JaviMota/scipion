@@ -82,7 +82,8 @@ AX_Z = 2
 # UsersGuide/midas/sym.html
 SYM_CYCLIC = 0  # CN
 SYM_DIHEDRAL = 1  # DN
-SYM_TETRAHEDRAL = 2  # T
+SYM_TETRAHEDRAL = 2  # T 222
+SYM_TETRAHEDRAL_Z3 = 2  # T  EMAN convention, 3-fold on z, 3-fold in yz plane along neg y.
 SYM_OCTAHEDRAL = 3  # O
 
 # icosahedric IXXX
@@ -99,6 +100,11 @@ SYM_I222r = 5
 SYM_In25 = 6
 # 'n25' with 180 degree rotation about x
 SYM_In25r = 7
+# Other Chimera symmetries:
+SYM_I2n3 = 8 # Two-fold symmetry along X and 3-fold along Z
+SYM_I2n3r = 9 # Idem but rotated 180 degree about Y
+SYM_I2n5 = 10 # Two-fold symmetry along Y and 5-fold along Z
+SYM_I2n5r = 11 # Idem but rotated 180 degree about X
 
 # Symmetry dictionary
 SCIPION_SYM_NAME = {}
@@ -110,4 +116,7 @@ SCIPION_SYM_NAME[SYM_I222] = 'I222'
 SCIPION_SYM_NAME[SYM_I222r] = 'I222r'
 SCIPION_SYM_NAME[SYM_In25] = 'In25'
 SCIPION_SYM_NAME[SYM_In25r] = 'In25r'
-
+SCIPION_SYM_NAME[SYM_I2n3] = 'I2n3'
+SCIPION_SYM_NAME[SYM_I2n3r] = 'I2n3r'
+SCIPION_SYM_NAME[SYM_I2n5] = 'I2n5'
+SCIPION_SYM_NAME[SYM_I2n5r] = 'I2n5r'

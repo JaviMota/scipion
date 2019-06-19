@@ -29,7 +29,8 @@
 This module defines the text used in the application.
 """
 
-class Message():
+
+class Message:
     # Example Usage: 
     # MyMessage = Message()
     # print MyMessage.label
@@ -57,13 +58,16 @@ class Message():
     
     # Project Content Template
     LABEL_PROJECT = 'Project '
-    #-- Protocol Treeview --
+
+    # -- Protocol Treeview --
     LABEL_WORKFLOW = 'Workflow View: '
     LABEL_PROTTREE_NONE = 'None'
-    #-- Toolbar --
+
+    # -- Toolbar --
     LABEL_NEW = 'New'
     LABEL_NEW_ACTION = 'New     '
     LABEL_EDIT = 'Edit'
+    LABEL_RENAME = 'Rename '
     LABEL_EDIT_ACTION = 'Edit     '
     LABEL_COPY = 'Copy'
     LABEL_COPY_ACTION = 'Copy   '
@@ -84,8 +88,9 @@ class Message():
     LABEL_CONTINUE = 'Continue'
     LABEL_CONTINUE_ACTION = 'Approve continue'
     LABEL_EXPORT = 'Export'
-    
-    #-- Tabs --
+    LABEL_EXPORT_UPLOAD = 'Export & upload'
+
+    # -- Tabs --
     LABEL_DATA = 'Data'
     LABEL_SUMMARY = 'Summary'
     LABEL_INPUT = 'Input'
@@ -113,7 +118,7 @@ class Message():
     NO_INFO_LOGS = 'No logs information.'
     NO_SAVE_SETTINGS = 'Error trying to save settings.'
     
-    #-------- Protocol Form messages ----------
+    # ------- Protocol Form messages ----------
     LABEL_CITE = 'Cite'
     LABEL_HELP = 'Help'
     TEXT_HELP = 'The file selected will be uploaded to the project folder. If the file was uploaded before, It will be replaced.'
@@ -123,6 +128,9 @@ class Message():
     LABEL_THREADS = 'Threads'
     LABEL_MPI = 'MPI'
     LABEL_QUEUE = 'Use queue?'
+    LABEL_QUEUE_FOR_JOBS = 'Use queue for Jobs?'
+
+    LABEL_WAIT_FOR = 'Wait for'
     
     LABEL_EXPERT = 'Expert Level'
     LABEL_EXPERT_NORMAL = 'Normal'
@@ -136,7 +144,8 @@ the *Continue* execution mode will try to continue from the
 last completed step. On the other hand, the *Restart* mode
 will clean the whole run directory and start from scratch.    
     """    
-    HELP_MPI_THREADS = """  
+
+    HELP_MPI_THREADS = """
 Define the number of processors to be used in the execution.
 *MPI*: This is a number of independent processes
        that communicate through message passing
@@ -145,12 +154,25 @@ Define the number of processors to be used in the execution.
        in the same process that can share memory. They run in
        the same computer.     
     """
-    HELP_USEQUEUE = """  
-Select *Yes* if you want to submit the job to a Queue system.
-The queue commands for launch and stop jobs should be configured
-for the current host in the _hosts.conf_ file.    
-    """     
-    
+
+    HELP_USEQUEUE = """
+    Select *Yes* if you want to submit a single job per protocol to a Queue system.
+    The queue commands for launch and stop jobs should be configured
+    for the current host in the _hosts.conf_ file.
+        """
+    HELP_USEQUEUEPERJOB = """
+    Select *Yes* if you want to submit the multiple jobs per protocol to a Queue system.
+    The queue commands for launch and stop jobs should be configured
+    for the current host in the _hosts.conf_ file.
+    """
+
+
+    HELP_WAIT_FOR = """
+    Specify a comma separated list of protocol IDs if you want
+that this protocol starts after the input protocols in the list
+are finished. This function will allow you to "schedule" many
+runs that will be executed after each other.
+    """
     
     TITLE_NAME_RUN = ' Protocol Run: '
     TITLE_RUN = 'Run'
@@ -276,6 +298,11 @@ Do you really want to continue?'
     
     TITLE_SAVE_OUTPUT = 'Save protocol output'
     LABEL_SAVE_OUTPUT = 'Do you wish to save protocol output?'
+
+    TITLE_RESTART_WORKFLOW = 'Confirm RESTART'
+    LABEL_RESTART_WORKFLOW = 'Do you really want to *RESTART* this Workflow? All previous results will be deleted'
+    TITLE_LAUNCHED_WORKFLOW_FAILED = 'Error while launching the Workflow'
+    LABEL_LAUNCHED_WORKFLOW_FAILED = 'The workflow can not be relaunch from this protocol.\n'
     
     #SHOWJ_WEB
     SHOWJ_TITLE = 'Showj'
@@ -330,9 +357,30 @@ Do you really want to continue?'
     LABEL_INSPECTOR = 'Objects inspector will inspect the whole project. ' \
                       'Thus, it can take a while depending on the size of the project.\n' \
                       'Do you want to continue?'
+    EXECUTE_PLUGINS_MANAGER_OPERATION = 'Execute all selected operations'
+    CANCEL_SELECTED_OPERATION = 'Cancel a selected operation'
+
+
+# PLUGIN/BINARY STATES
+class PluginStates:
+    PLUGIN = 'plugin'
+    BINARY = 'binary'
+    UNCHECKED = 'unchecked'
+    CHECKED = 'checked'
+    INSTALL = 'install'
+    UNINSTALL = 'uninstall'
+    TO_INSTALL = 'to_install'
+    INSTALLED = 'installed'
+    PRECESSING = 'processing'
+    FAILURE = 'failure'
+    AVAILABLE_RELEASE = 'available_release'
+    TO_UPDATE = 'to_update'
+    SUCCESS = 'success'
+    ERRORS = 'errors'
+
 
 # To get font awesome icons into png use: http://fa2png.io/
-class Icon():
+class Icon:
     # Project Content Template
     RUNS_TREE = 'fa-sitemap.png'
     RUNS_LIST = 'fa-bars.png'
@@ -342,6 +390,7 @@ class Icon():
     ACTION_COPY = 'fa-files-o.png'
     ACTION_DELETE = 'fa-trash-o.png'
     ACTION_REFRESH = 'fa-refresh.png'
+    ACTION_RENAME = 'rename.png'
     # TODO: change action_steps icon - fa-codefork?
     ACTION_STEPS = 'fa-list-ul.png'
     ACTION_BROWSE = 'fa-folder-open.png'
@@ -358,7 +407,8 @@ class Icon():
     ACTION_HELP = 'fa-question-circle.png'
     ACTION_REFERENCES = 'fa-external-link.png'
     ACTION_EXPORT = 'fa-external-link.png'
-    
+    ACTION_EXPORT_UPLOAD = 'fa-upload.png'
+
     ACTION_SEARCH = 'fa-search.png'
     ACTION_EXECUTE = 'fa-cogs.png'
     ACTION_IN = 'fa-sign-in.png'
@@ -381,7 +431,26 @@ class Icon():
     ROOT = 'root.png'
     ROCKET = 'fa-rocket.png'
 
-class Color():
+    SCIPION_ICON = 'scipion_icon.png'
+    SCIPION_ICON_PROJ = 'scipion_icon.png'  # 'scipion_icon_proj.png'
+    SCIPION_ICON_PROJS = 'scipion_icon.png'  # 'scipion_icon_projs.png'
+    SCIPION_ICON_PROT = 'scipion_icon.png'  # 'scipion_icon_prot.png'
+
+    # PLUGIN MANAGER ICONS
+    CHECKED = 'fa-checked.png'
+    UNCHECKED = 'fa-unchecked.png'
+    INSTALL = 'fa-install.png'
+    UNINSTALL = 'fa-uninstall.png'
+    TO_INSTALL = 'fa-to_install.png'
+    INSTALLED = 'fa-installed.png'
+    PROCESSING = 'fa-processing.png'
+    FAILURE = 'fa-failure.png'
+    DELETE_OPERATION = 'fa-delete-operation.png'
+    TO_UPDATE = 'fa-update.png'
+    ACTION_UNDO = 'fa-undo.png'
+
+
+class Color:
     RED_COLOR = 'Firebrick' # Red color for background label  = #B22222
     LIGHT_RED_COLOR = '#F3CBCB' # Very light red for row selection
     LIGHT_BLUE_COLOR = '#EAEBFF' # Very light blue for even rows
@@ -396,7 +465,7 @@ class Color():
     STATUS_FAILED = '#F5CCCB', 
     STATUS_INTERACTIVE = '#F3F5CB',
     STATUS_ABORTED = '#F5CCCB',
-    #STATUS_SAVED = '#124EB0',
+
 
 class colorText:
     """printing in colors, bold, etc,
@@ -412,6 +481,7 @@ class colorText:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
+
 
 class KEYSYM:
     """ Keysym values for evaluating key pressed within events

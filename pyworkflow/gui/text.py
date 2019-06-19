@@ -257,10 +257,10 @@ class Text(tk.Text, Scrollable):
             path = os.path.join(dirname, fname)
 
         if os.path.exists(path):
-            import xmipp
-            fn = xmipp.FileName(path)
+            import xmippLib
+            fn = xmippLib.FileName(path)
             if fn.isImage() or fn.isMetaData():
-                from pyworkflow.em.viewer import DataView
+                from pyworkflow.em.viewers import DataView
                 DataView(path).show()
             else:
                 _open_cmd(path)
@@ -324,7 +324,8 @@ class TaggedText(Text):
     Implement a Text that will recognize some basic tags
     *some_text* will display some_text in bold
     _some_text_ will display some_text in italic
-    some_link or [[some_link][some_label]] will display some_link as hyperlink or some_label as hyperlink to some_link
+    some_link or [[some_link][some_label]] will display some_link
+     as hyperlink or some_label as hyperlink to some_link
     also colors are recognized if set option colors=True
     """           
     def __init__(self, master, colors=True, **opts):  
@@ -342,7 +343,8 @@ class TaggedText(Text):
         self.tag_config(HYPER_BOLD, justify=tk.LEFT, font=gui.fontBold)
         self.tag_config(HYPER_ITALIC, justify=tk.LEFT, font=gui.fontItalic)
         if self.colors:            
-            self.colors = configureColorTags(self) # Color can be unavailable, so disable use of colors    
+            self.colors = configureColorTags(self)
+            # Color can be unavailable, so disable use of colors
         
     @staticmethod
     def openLink(link):
@@ -376,8 +378,6 @@ class TaggedText(Text):
     def addLine(self, line):
         self.line = line
         self.lastIndex = 0
-        #if protocol has been executed BUT crashee before create something
-        #line=None (ROB)
         if line is not None:
             parseHyperText(line, self.matchHyperText)
             Text.addLine(self, line[self.lastIndex:])
@@ -514,6 +514,7 @@ class TextFileViewer(tk.Frame):
         for _ in self.taList:
             self.notebook.forget(0)       
         self.taList = []
+        self._lastTabIndex = None
         
     def _addFileTab(self, filename):
         tab = tk.Frame(self.notebook)
@@ -636,12 +637,13 @@ class TextFileViewer(tk.Frame):
     def findText(self, direction=1):
         text = self.selectedText()
         str = self.searchVar.get()
-        if str is None or str != self.lastSearch:
-            self.buildSearchList(text, str)
-            self.lastSearch = str
-        else:
-            self.nextSearchIndex(text, direction)
-        self.searchEntry.focus_set()
+        if text:
+            if str is None or str != self.lastSearch:
+                self.buildSearchList(text, str)
+                self.lastSearch = str
+            else:
+                self.nextSearchIndex(text, direction)
+            self.searchEntry.focus_set()
         
     def buildSearchList(self, text, str):
         text.tag_remove('found', '1.0', tk.END)
