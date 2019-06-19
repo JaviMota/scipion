@@ -115,7 +115,6 @@ class computePdbTrajectories(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def createTrajectories(self):
-        time.sleep(10)
 
         self.initialFileName = self.initialPdb.get().getFileName()
 
@@ -233,21 +232,26 @@ class computePdbTrajectories(EMProtocol):
             else:
                 if self.usingPseudoatoms.get() is True:
                     w1_start = parsePDB(str(self._params['initPdb']))
-                    w1_traj = parseDCD(self._getExtraPath('initr.dcd'))
-                    w1_traj.setCoords(w1_start)
-                    w1_traj.setAtoms(w1_start)
-                    '''os.system(
-                        'mv fin_trajectory.dcd fin_trajectory{:02d}'
-                        '.dcd'.format(traj + 1))'''
+                    fnDCD = self._getExtraPath('initr.dcd')
+                    if os.path.exists(fnDCD):
+                        w1_traj = parseDCD(fnDCD)
+                        w1_traj.setCoords(w1_start)
+                        w1_traj.setAtoms(w1_start)
+                        writeDCD(self._getExtraPath(
+                            'trajectory{:02d}.dcd'.format(traj + 1)),
+                                 w1_traj)
+
                 else:
                     w1_start = parsePDB(self._getExtraPath(
                         'walker1_ionized.pdb'))
-                    w1_traj = parseDCD(self._getExtraPath('walker1_trajectory.dcd'))
-                    w1_traj.setCoords(w1_start)
-                    w1_traj.setAtoms(w1_start.select('protein and not hydrogen'))
+                    fnDCD = self._getExtraPath('walker1_trajectory.dcd')
+                    if os.path.exists(fnDCD):
+                        w1_traj = parseDCD(fnDCD)
+                        w1_traj.setCoords(w1_start)
+                        w1_traj.setAtoms(w1_start.select('protein and not hydrogen'))
 
-                writeDCD(self._getExtraPath('trajectory{:02d}.dcd'.format(traj+1)),
-                         w1_traj)
+                        writeDCD(self._getExtraPath('trajectory{:02d}.dcd'.format(traj+1)),
+                                w1_traj)
 
             if self.usingPseudoatoms.get() is False:
                 os.system('mv walker1_trajectory.dcd walker1_trajectory{:02d}.dcd'.
@@ -429,25 +433,28 @@ class computePdbTrajectories(EMProtocol):
         setOfPDBs = self._createSetOfPDBs()
         setOfTrajectories = self._createSetOfTrajectories()
         for n in range(self.numTrajectories.get()):
-            fnDcd = self._getExtraPath('trajectory{:02d}.dcd'.format(n+1))
-            ens = parseDCD(fnDcd)
-            if self.usingPseudoatoms.get() is True:
-                protein = parsePDB(str(self._params['initPdb']))
-            else:
-                atoms = parsePDB(self._getExtraPath('walker1_ionized.pdb'))
-                protein = atoms.select('protein and not hydrogen').copy()
-            ens.setCoords(protein)
-            ens.setAtoms(protein)
-            fnPdb = []
-            for i, conformation in enumerate(ens):
-                fnPdb.append(self._getExtraPath('trajectory{:02d}_pdb{:02d}.pdb'.format(n + 1,i + 1)))
-                writePDB(fnPdb[i], conformation)
-                pdb = PdbFile(fnPdb[i],self.usingPseudoatoms.get(), self.initialPdb.get().getDeviation())
-                setOfPDBs.append(pdb)
-            traj = TrajectoryDcd(fnDcd,
-                   self._getExtraPath('trajectory{:02d}_pdb01.pdb'.format(n+1)), self.usingPseudoatoms.get(),
-                                 self.initialPdb.get().getDeviation())
-            setOfTrajectories.append(traj)
+            try:
+                fnDcd = self._getExtraPath('trajectory{:02d}.dcd'.format(n+1))
+                ens = parseDCD(fnDcd)
+                if self.usingPseudoatoms.get() is True:
+                    protein = parsePDB(str(self._params['initPdb']))
+                else:
+                    atoms = parsePDB(self._getExtraPath('walker1_ionized.pdb'))
+                    protein = atoms.select('protein and not hydrogen').copy()
+                ens.setCoords(protein)
+                ens.setAtoms(protein)
+                fnPdb = []
+                for i, conformation in enumerate(ens):
+                    fnPdb.append(self._getExtraPath('trajectory{:02d}_pdb{:02d}.pdb'.format(n + 1,i + 1)))
+                    writePDB(fnPdb[i], conformation)
+                    pdb = PdbFile(fnPdb[i],self.usingPseudoatoms.get(), self.initialPdb.get().getDeviation())
+                    setOfPDBs.append(pdb)
+                traj = TrajectoryDcd(fnDcd,
+                       self._getExtraPath('trajectory{:02d}_pdb01.pdb'.format(n+1)), self.usingPseudoatoms.get(),
+                                     self.initialPdb.get().getDeviation())
+                setOfTrajectories.append(traj)
+            except:
+                pass
 
         self._defineOutputs(outputPDBs=setOfPDBs)
         self._defineSourceRelation(self.initialPdb.get(), setOfPDBs)
