@@ -153,7 +153,9 @@ class ProdyViewerCluster(ProtocolViewer):
 
             distMatrix = \
                 parseArray(str(obj.distanceMatrixFile.getFileName()))
-            reordered_matrix, indices = reorderMatrix(distMatrix, tree)
+
+            names = [str(i) for i in range(len(distMatrix))]
+            reordered_matrix, indices = reorderMatrix(distMatrix, tree, names)
             plt.figure()
             show = showMatrix(reordered_matrix, ticklabels=indices,
                               origin='upper', allticks=True)
