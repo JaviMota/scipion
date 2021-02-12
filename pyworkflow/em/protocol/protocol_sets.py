@@ -143,16 +143,10 @@ class ProtUnionSet(ProtSets):
             # Copy info from input sets (sampling rate, etc).
             outputSet.copyInfo(set1)  # all sets must have the same info as set1!
 
-<<<<<<< HEAD
-            # Renumber from the beginning if either the renumber option is selected
-            # or we find duplicated ids in the sets
-            cleanIds = self.renumber.get() or self.duplicatedIds()
-=======
         # Renumber from the beginning if either the renumber option is selected
         # or we find duplicated ids in the sets
         cleanIds = ((not self.ignoreDuplicates.get() and self.duplicatedIds())
                         or self.renumber.get())
->>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927
 
         #TODO ROB remove ignoreExtraAttributes condition
         #or implement it. But this will be for Scipion 1.2
@@ -168,12 +162,11 @@ class ProtUnionSet(ProtSets):
 
         idsList = []
         for itemSet in self.inputSets:
-<<<<<<< HEAD
             if set1.getClassName() == 'Volume':
                 newObj = itemSet.get()
                 newObj.setSamplingRate(itemSet.get().getSamplingRate())
                 outputSet.setSamplingRate(itemSet.get().getSamplingRate())
-=======
+                
             for obj in itemSet.get():
                 objId = obj.getObjId()
                 if self.ignoreDuplicates.get():
@@ -193,7 +186,6 @@ class ProtUnionSet(ProtSets):
 
                 if cleanIds:
                     newObj.cleanObjId()
->>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927
                 outputSet.append(newObj)
             else:
                 for obj in itemSet.get():

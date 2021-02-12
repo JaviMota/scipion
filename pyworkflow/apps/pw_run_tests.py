@@ -45,11 +45,8 @@ import pyworkflow.utils as pwutils
 import pyworkflow.tests as pwtests
 import pyworkflow.em as pwem
 
-<<<<<<< HEAD:scripts/run_tests.py
 from pyworkflow.tests import *
 from pyworkflow import HOME
-=======
->>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927:pyworkflow/apps/pw_run_tests.py
 
 from pyworkflow.tests import *
 

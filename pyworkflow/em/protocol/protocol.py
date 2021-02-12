@@ -35,11 +35,8 @@ from pyworkflow.em.data import (SetOfMicrographs, SetOfCoordinates,
                                 SetOfClasses2D, SetOfClasses3D, SetOfClassesVol,
                                 SetOfVolumes, SetOfCTF, SetOfMovies, SetOfFSCs,
                                 SetOfMovieParticles, SetOfAverages,
-<<<<<<< HEAD
-                                SetOfNormalModes, SetOfPDBs, SetOfTrajectories)
-=======
-                                SetOfNormalModes, SetOfAtomStructs)
->>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927
+                                SetOfNormalModes, SetOfAtomStructs, SetOfTrajectories)
+
 from pyworkflow.em.constants import (RELATION_SOURCE, RELATION_TRANSFORM,
                                      RELATION_CTF)
 from pyworkflow.em.data_tiltpairs import (SetOfAngles, CoordinatesTiltPair,

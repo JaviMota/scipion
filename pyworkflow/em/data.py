@@ -893,7 +893,7 @@ class AtomStruct(EMFile):
     def setOrigin(self, newOrigin):
         self._origin = newOrigin
 
-<<<<<<< HEAD
+
 class TrajectoryDcd(EMFile):
 
     def __init__(self, filename=None, initialPdb=None, pseudoatoms = False, sigma = 0, **kwargs):
@@ -913,11 +913,11 @@ class TrajectoryDcd(EMFile):
 
     def getDeviation(self):
         return self._sigma
-=======
+
+
 class PdbFile(AtomStruct):
     def __init__(self, filename=None, pseudoatoms=False, **kwargs):
         AtomStruct.__init__(self, filename, pseudoatoms, **kwargs)
->>>>>>> d1a60f69960d1079bbbecde5bf3f5f4017b36927
 
 
 class EMSet(Set, EMObject):
